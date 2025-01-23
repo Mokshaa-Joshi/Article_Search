@@ -11,7 +11,7 @@ def fetch_article_links(base_url, keyword):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # List to hold article links
+        # List to hold article links and headlines
         links = []
         
         # Find all <a> tags with href attribute
@@ -67,14 +67,15 @@ def translate_text(text, target_language="gu"):
 def display_articles(links):
     if links:
         for headline, link in links:
-            with st.expander(f"{headline}"):
+            with st.expander(f"**{headline}**"):
+                st.write(f"[Read Full Article]({link})")  # Link to the original article
                 date, content = extract_article(link)
                 st.write(f"**Published on:** {date}")
                 if content:
                     st.write(f"**Article Content (Original):**\n{content}")
                     # Translate content if needed
-                    translated_content = translate_text(content)
-                    st.write(f"**Article Content (Translated):**\n{translated_content}")
+                    #translated_content = translate_text(content)
+                    #st.write(f"**Article Content (Translated):**\n{translated_content}")
                 else:
                     st.warning(f"Article has no content.")
     else:
