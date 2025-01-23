@@ -2,51 +2,60 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 
-# Define function to scrape articles based on newspaper selection
-def scrape_articles(newspaper, keyword):
-    articles = []
-    
+# Function to fetch articles based on newspaper selection and search term
+def fetch_articles(newspaper, keyword):
+    # You will need to define the specific URLs and scraping logic for each newspaper.
     if newspaper == "Sandesh":
-        url = f"https://www.sandesh.com/search?search={keyword}"
+        url = "https://www.sandesh.com"  # Example, replace with actual URL
     elif newspaper == "Divya Bhaskar":
-        url = f"https://www.divyabhaskar.co.in/search/?search={keyword}"
+        url = "https://www.divyabhaskar.co.in"  # Example, replace with actual URL
     elif newspaper == "Gujarat Samachar":
-        url = f"https://www.gujaratsamachar.com/search?q={keyword}"
+        url = "https://www.gujaratsamachar.com"  # Example, replace with actual URL
     
+    # Perform a request to fetch the page content
     response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(response.content, "html.parser")
     
-    # Modify this part based on the newspaper's HTML structure
-    for item in soup.find_all('article'):  # Adjust based on actual HTML structure
-        headline = item.find('h2').get_text() if item.find('h2') else "No headline"
-        content = item.find('p').get_text() if item.find('p') else "No content"
-        link = item.find('a')['href'] if item.find('a') else "#"
-        date = item.find('time').get_text() if item.find('time') else "No date"
+    # Example scraping logic (adjust selectors for each site)
+    articles = []
+    for article in soup.find_all('article'):  # Adjust tag and class as needed
+        headline = article.find('h2').text
+        content = article.find('p').text
+        link = article.find('a')['href']
+        date = article.find('time').text
         
-        articles.append({
-            'headline': headline,
-            'content': content,
-            'link': link,
-            'date': date
-        })
+        # Check if the keyword matches the article content
+        if keyword.lower() in headline.lower() or keyword.lower() in content.lower():
+            articles.append({
+                'headline': headline,
+                'content': content,
+                'link': link,
+                'date': date
+            })
     
     return articles
 
-# Streamlit UI Layout
-st.title("Gujarati Newspaper Article Search")
-st.sidebar.title("Select Newspaper")
-newspaper = st.sidebar.selectbox("Choose a Newspaper", ["Sandesh", "Divya Bhaskar", "Gujarat Samachar"])
-keyword = st.text_input("Enter Keyword")
+# Streamlit interface
+st.title("Gujarati News Search")
 
+# Dropdown for selecting newspaper
+newspaper = st.sidebar.selectbox(
+    "Select Newspaper",
+    ["Sandesh", "Divya Bhaskar", "Gujarat Samachar"]
+)
+
+# Search bar for entering the keyword
+keyword = st.text_input("Enter keyword")
+
+# Display articles if keyword is entered
 if keyword:
-    st.sidebar.text("Searching for articles...")
-    articles = scrape_articles(newspaper, keyword)
+    articles = fetch_articles(newspaper, keyword)
     
     if articles:
         for article in articles:
-            st.subheader(f"Headline: {article['headline']}")
-            st.write(f"Content: {article['content']}")
+            st.subheader(article['headline'])
             st.write(f"Date: {article['date']}")
-            st.write(f"Link: [Read more]({article['link']})")
+            st.write(f"[Read more]({article['link']})")
+            st.write(article['content'])
     else:
-       
+        st.write("No articles found for the given keyword.")
