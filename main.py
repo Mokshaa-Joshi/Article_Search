@@ -97,7 +97,3 @@ def main():
 
         with st.spinner("Searching..."):
             links = fetch_article_links(base_url, keyword)
-            display_articles(links)
-
-
-if __
