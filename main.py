@@ -68,9 +68,12 @@ def display_articles(links):
     if links:
         for headline, link in links:
             with st.expander(f"**{headline}**"):
-                st.write(f"[Read Full Article]({link})")  # Link to the original article
+                # Create a markdown link that opens in a new tab
+                st.markdown(f"[Read Full Article]({link})", unsafe_allow_html=True)  # Link to the original article
+                
                 date, content = extract_article(link)
                 st.write(f"**Published on:** {date}")
+                
                 if content:
                     st.write(f"**Article Content (Original):**\n{content}")
                     # Translate content if needed
