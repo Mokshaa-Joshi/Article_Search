@@ -3,26 +3,29 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 
+
 def normalize_url(url, base_url):
+    """Normalizes a URL to remove query parameters and fragments."""
     if not url.startswith("http"):
         url = urljoin(base_url, url)
-    
+
     parsed_url = urlparse(url)
     normalized_url = parsed_url._replace(query='', fragment='').geturl()
-    
+
     return normalized_url
 
+
 def fetch_article_links(base_url, keyword):
+    """Fetches links to articles containing the keyword from the base URL."""
     try:
         response = requests.get(base_url)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
         links = set()
-
         for a in soup.find_all('a', href=True):
-            if keyword.lower() in a.get('href', '').lower() or keyword.lower() in a.text.lower():
-                href = a['href']
+            href = a.get('href', '')
+            if keyword.lower() in href.lower() or keyword.lower() in a.text.lower():
                 normalized_url = normalize_url(href, base_url)
                 links.add((a.text.strip(), normalized_url))
 
@@ -31,18 +34,21 @@ def fetch_article_links(base_url, keyword):
         st.error(f"An error occurred while fetching links: {e}")
         return []
 
+
 def extract_article(link):
+    """Extracts the date and content (if available) from an article URL."""
     try:
         response = requests.get(link)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        date = soup.find('span', class_='time')
-        article_date = date.get_text(strip=True) if date else "Date not found"
+        # **Adjust selectors based on website structure:**
+        date_element = soup.find('span', class_='time')  # Example selector, replace if needed
+        article_date = date_element.get_text(strip=True) if date_element else "Date not found"
 
-        content = soup.find('div', class_='article-detail')
-        if content:
-            article_text = "\n".join(p.get_text() for p in content.find_all('p'))
+        content_element = soup.find('div', class_='article-detail')  # Example selector, replace if needed
+        if content_element:
+            article_text = "\n".join(p.get_text() for p in content_element.find_all('p'))
         else:
             paragraphs = soup.find_all('p')
             article_text = "\n".join(p.get_text() for p in paragraphs if p.get_text())
@@ -51,28 +57,31 @@ def extract_article(link):
     except Exception as e:
         return f"Error extracting article: {e}", ""
 
+
 def display_articles(links):
+    """Displays a list of articles with headlines, links, dates, and content (if available)."""
     if links:
         seen_articles = set()
-
         for headline, link in links:
             if link not in seen_articles:
                 with st.expander(f"**{headline}**"):
                     st.markdown(f"[Read Full Article]({link})", unsafe_allow_html=True)
-                    
+
                     date, content = extract_article(link)
                     st.write(f"**Published on:** {date}")
-                    
+
                     if content:
                         st.write(f"**Article Content:**\n{content}")
                     else:
                         st.warning(f"Article has no content.")
-                
+
                 seen_articles.add(link)
     else:
         st.warning("No articles found.")
 
+
 def main():
+    """Main function to run the Streamlit app."""
     st.set_page_config(page_title="Gujarati News Article Finder", page_icon="📰")
     st.title("Gujarati News Article Finder")
 
@@ -90,5 +99,5 @@ def main():
             links = fetch_article_links(base_url, keyword)
             display_articles(links)
 
-if __name__ == "__main__":
-    main()
+
+if __
