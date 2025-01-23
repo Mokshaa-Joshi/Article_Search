@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
 
-# Function to fetch article links based on keyword search for Sandesh
+# Function to fetch article links based on keyword search for Gujarat Midday
 def fetch_article_links(base_url, keyword):
     try:
         # Fetch the page content
@@ -13,8 +13,8 @@ def fetch_article_links(base_url, keyword):
 
         # List to hold article links and headlines
         links = []
-        
-        # You may need to adjust this to Sandesh's specific HTML structure
+
+        # Look for all <a> tags with href attribute
         for a in soup.find_all('a', href=True):
             # Check if keyword is in href or anchor text (case insensitive)
             if keyword.lower() in a.get('href', '').lower() or keyword.lower() in a.text.lower():
@@ -37,12 +37,12 @@ def extract_article(link):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Extract the date of publication (adjust for Sandesh's specific structure)
-        date = soup.find('span', class_='date')  # You may need to adjust the class
+        # Extract the date of publication (adjust for Gujarat Midday's structure)
+        date = soup.find('span', class_='time')
         article_date = date.get_text(strip=True) if date else "Date not found"
 
         # Extract the article content (body)
-        content = soup.find('div', class_='article-body')
+        content = soup.find('div', class_='article-detail')
         if content:
             article_text = "\n".join(p.get_text() for p in content.find_all('p'))
         else:
@@ -90,12 +90,12 @@ def main():
     st.title("Gujarati News Article Finder")
 
     # Newspaper selection and keyword input
-    newspaper = st.selectbox("Choose Newspaper", ["Sandesh", "Divya Bhaskar", "Gujarat Samachar"])
+    newspaper = st.selectbox("Choose Newspaper", ["Gujarat Midday", "Divya Bhaskar", "Gujarat Samachar"])
     keyword = st.text_input("Enter keyword:")
 
     if st.button("Search Articles"):
         base_url = {
-            "Sandesh": "https://www.sandesh.com/",
+            "Gujarat Midday": "https://www.gujaratimidday.com/",
             "Divya Bhaskar": "https://www.divyabhaskar.com/",
             "Gujarat Samachar": "https://www.gujaratsamachar.com/"
         }[newspaper]
