@@ -53,7 +53,7 @@ def extract_article(link):
 
 def display_articles(links):
     if links:
-        seen_articles = set()  # Set to track articles that have been displayed
+        seen_articles = set()
 
         for headline, link in links:
             if link not in seen_articles:
@@ -68,7 +68,7 @@ def display_articles(links):
                     else:
                         st.warning(f"Article has no content.")
                 
-                seen_articles.add(link)  # Mark this article as displayed
+                seen_articles.add(link)
     else:
         st.warning("No articles found.")
 
