@@ -1,67 +1,94 @@
 import streamlit as st
-from bs4 import BeautifulSoup
 import requests
-from datetime import datetime
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
 
-# Define newspaper URLs and their Gujarati names
-newspapers = {
-    "સંદેશ": "https://www.sandesh.com/",
-    "દિવ્ય ભાસ્કર": "https://www.divyabhaskar.co.in/",
-    "ગુજરાત સમાચાર": "https://www.gujaratsamachar.com/"
-}
+def normalize_url(url, base_url):
+    if not url.startswith("http"):
+        url = urljoin(base_url, url)
+    
+    parsed_url = urlparse(url)
+    normalized_url = parsed_url._replace(query='', fragment='').geturl()
+    
+    return normalized_url
 
-def get_articles(newspaper_url, keyword):
+def fetch_article_links(base_url, keyword):
     try:
-        response = requests.get(newspaper_url)
-        response.raise_for_status()  # Raise an exception for bad status codes
-        soup = BeautifulSoup(response.content, "html.parser")
+        response = requests.get(base_url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-        # **Important:** This part needs to be adjusted based on the actual HTML 
-        # structure of the specific newspaper websites. 
-        # Example (This is a placeholder, adjust accordingly):
-        articles = soup.find_all("div", class_="article-item") 
+        links = set()
 
-        results = []
-        for article in articles:
-            try:
-                headline = article.find("h2").text.strip()
-                # Extract a portion of the content (adjust as needed)
-                content = article.find("p").text.strip()[:200] + "..." 
-                link = article.find("a", href=True)["href"]
+        for a in soup.find_all('a', href=True):
+            if keyword.lower() in a.get('href', '').lower() or keyword.lower() in a.text.lower():
+                href = a['href']
+                normalized_url = normalize_url(href, base_url)
+                links.add((a.text.strip(), normalized_url))
 
-                # Example date extraction (adjust based on website structure)
-                date_str = article.find("span", class_="date").text.strip() 
-                date = datetime.strptime(date_str, "%d-%m-%Y") 
-
-                results.append({
-                    "headline": headline,
-                    "content": content,
-                    "link": link,
-                    "date": date.strftime("%d-%m-%Y") 
-                })
-            except AttributeError:
-                continue  # Skip articles with missing elements
-
-        return results
-    except requests.exceptions.RequestException as e:
-        st.error(f"દત્તા મેળવવામાં ભૂલ: {newspaper_url} થી: {e}")
+        return list(links)
+    except Exception as e:
+        st.error(f"An error occurred while fetching links: {e}")
         return []
 
-# Streamlit app
-st.title("ગુજરાતી અખબાર શોધ")
+def extract_article(link):
+    try:
+        response = requests.get(link)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-selected_newspaper = st.selectbox("અખબાર પસંદ કરો", list(newspapers.keys()))
-keyword = st.text_input("કીવર્ડ દાખલ કરો")
+        date = soup.find('span', class_='time')
+        article_date = date.get_text(strip=True) if date else "Date not found"
 
-if st.button("શોધ"):
-    articles = get_articles(newspapers[selected_newspaper], keyword)
+        content = soup.find('div', class_='article-detail')
+        if content:
+            article_text = "\n".join(p.get_text() for p in content.find_all('p'))
+        else:
+            paragraphs = soup.find_all('p')
+            article_text = "\n".join(p.get_text() for p in paragraphs if p.get_text())
 
-    if articles:
-        st.success(f"{selected_newspaper} માં {len(articles)} લેખો મળ્યા")
-        for article in articles:
-            st.subheader(article["headline"])
-            st.write(article["content"])
-            st.write(f"લિંક: {article['link']}")
-            st.write(f"તારીખ: {article['date']}")
+        return article_date, article_text if article_text else "No article content found."
+    except Exception as e:
+        return f"Error extracting article: {e}", ""
+
+def display_articles(links):
+    if links:
+        seen_articles = set()
+
+        for headline, link in links:
+            if link not in seen_articles:
+                with st.expander(f"**{headline}**"):
+                    st.markdown(f"[Read Full Article]({link})", unsafe_allow_html=True)
+                    
+                    date, content = extract_article(link)
+                    st.write(f"**Published on:** {date}")
+                    
+                    if content:
+                        st.write(f"**Article Content:**\n{content}")
+                    else:
+                        st.warning(f"Article has no content.")
+                
+                seen_articles.add(link)
     else:
-        st.info("કોઈ લેખ મળ્યો નથી.")
+        st.warning("No articles found.")
+
+def main():
+    st.set_page_config(page_title="Gujarati News Article Finder", page_icon="📰")
+    st.title("Gujarati News Article Finder")
+
+    newspaper = st.selectbox("Choose Newspaper", ["Gujarat Midday", "Divya Bhaskar", "Gujarat Samachar"])
+    keyword = st.text_input("Enter keyword:")
+
+    if st.button("Search Articles"):
+        base_url = {
+            "Gujarat Midday": "https://www.gujaratimidday.com/",
+            "Divya Bhaskar": "https://www.divyabhaskar.com/",
+            "Gujarat Samachar": "https://www.gujaratsamachar.com/"
+        }[newspaper]
+
+        with st.spinner("Searching..."):
+            links = fetch_article_links(base_url, keyword)
+            display_articles(links)
+
+if __name__ == "__main__":
+    main()
