@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
 
-# Function to fetch article links based on keyword search
+# Function to fetch article links based on keyword search for Sandesh
 def fetch_article_links(base_url, keyword):
     try:
         # Fetch the page content
@@ -14,7 +14,7 @@ def fetch_article_links(base_url, keyword):
         # List to hold article links and headlines
         links = []
         
-        # Find all <a> tags with href attribute
+        # You may need to adjust this to Sandesh's specific HTML structure
         for a in soup.find_all('a', href=True):
             # Check if keyword is in href or anchor text (case insensitive)
             if keyword.lower() in a.get('href', '').lower() or keyword.lower() in a.text.lower():
@@ -37,8 +37,8 @@ def extract_article(link):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Extract the date of publication (you may need to adjust this part based on the site's structure)
-        date = soup.find('h5')
+        # Extract the date of publication (adjust for Sandesh's specific structure)
+        date = soup.find('span', class_='date')  # You may need to adjust the class
         article_date = date.get_text(strip=True) if date else "Date not found"
 
         # Extract the article content (body)
