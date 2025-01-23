@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
 
-# Function to fetch article links based on keyword search for Gujarat Midday
+# Function to fetch unique article links based on keyword search for Gujarat Midday
 def fetch_article_links(base_url, keyword):
     try:
         # Fetch the page content
@@ -11,20 +11,22 @@ def fetch_article_links(base_url, keyword):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # List to hold article links and headlines
-        links = []
+        # Set to hold unique article links and headlines
+        links = set()  # Use a set to avoid duplicates
 
         # Look for all <a> tags with href attribute
         for a in soup.find_all('a', href=True):
-            # Check if keyword is in href or anchor text (case insensitive)
-            if keyword.lower() in a.get('href', '').lower() or keyword.lower() in a.text.lower():
-                href = a['href']
+            href = a['href']
+            if keyword.lower() in a.text.lower():
                 # Ensure full URL if it's a relative path
                 if not href.startswith("http"):
                     href = f"{base_url.rstrip('/')}/{href.lstrip('/')}"
-                links.append((a.text.strip(), href))  # Store headline and link
+                
+                # Only add the unique link if it's not already in the set
+                if href not in links:
+                    links.add(href)
 
-        return links
+        return list(links)  # Convert set back to list to return unique links
     except Exception as e:
         st.error(f"An error occurred while fetching links: {e}")
         return []
@@ -66,8 +68,8 @@ def translate_text(text, target_language="gu"):
 # Function to display the articles
 def display_articles(links):
     if links:
-        for headline, link in links:
-            with st.expander(f"**{headline}**"):
+        for link in links:
+            with st.expander(f"**{link}**"):
                 # Create a markdown link that opens in a new tab
                 st.markdown(f"[Read Full Article]({link})", unsafe_allow_html=True)  # Link to the original article
                 
