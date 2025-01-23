@@ -2,8 +2,21 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
+from urllib.parse import urljoin, urlparse
 
-# Function to fetch unique article links based on keyword search for Gujarat Midday
+# Function to normalize the URL by removing query parameters and fragments
+def normalize_url(url, base_url):
+    # Ensure full URL if it's a relative path
+    if not url.startswith("http"):
+        url = urljoin(base_url, url)
+    
+    # Parse the URL and remove query and fragment
+    parsed_url = urlparse(url)
+    normalized_url = parsed_url._replace(query='', fragment='').geturl()
+    
+    return normalized_url
+
+# Function to fetch article links based on keyword search for Gujarat Midday
 def fetch_article_links(base_url, keyword):
     try:
         # Fetch the page content
@@ -16,15 +29,12 @@ def fetch_article_links(base_url, keyword):
 
         # Look for all <a> tags with href attribute
         for a in soup.find_all('a', href=True):
-            href = a['href']
-            if keyword.lower() in a.text.lower():
-                # Ensure full URL if it's a relative path
-                if not href.startswith("http"):
-                    href = f"{base_url.rstrip('/')}/{href.lstrip('/')}"
-                
-                # Only add the unique link if it's not already in the set
-                if href not in links:
-                    links.add(href)
+            # Check if keyword is in href or anchor text (case insensitive)
+            if keyword.lower() in a.get('href', '').lower() or keyword.lower() in a.text.lower():
+                href = a['href']
+                # Normalize the URL to remove query parameters and fragments
+                normalized_url = normalize_url(href, base_url)
+                links.add((a.text.strip(), normalized_url))  # Store headline and link
 
         return list(links)  # Convert set back to list to return unique links
     except Exception as e:
@@ -68,8 +78,8 @@ def translate_text(text, target_language="gu"):
 # Function to display the articles
 def display_articles(links):
     if links:
-        for link in links:
-            with st.expander(f"**{link}**"):
+        for headline, link in links:
+            with st.expander(f"**{headline}**"):
                 # Create a markdown link that opens in a new tab
                 st.markdown(f"[Read Full Article]({link})", unsafe_allow_html=True)  # Link to the original article
                 
