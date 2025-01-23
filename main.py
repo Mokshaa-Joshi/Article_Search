@@ -1,81 +1,120 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
+from deep_translator import GoogleTranslator
 
-
-# Generalized scraping function
-def scrape_general(url, keyword):
-    """
-    Scrapes articles and links from a given URL using a keyword.
-    - url: The base URL of the website or search page.
-    - keyword: The search keyword.
-    """
+# Function to fetch article links
+def fetch_article_links(base_url, keyword):
     try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an error for bad HTTP responses
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching URL {url}: {e}")
+        # Fetch the page content
+        response = requests.get(base_url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        links = []
+        # Look for all <a> tags with href attribute
+        for a in soup.find_all('a', href=True):
+            # Check if keyword is in href or anchor text (case insensitive)
+            if keyword.lower() in a.get('href', '').lower() or keyword.lower() in a.text.lower():
+                href = a['href']
+                # Ensure full URL if it's a relative path
+                if not href.startswith("http"):
+                    href = f"{base_url.rstrip('/')}/{href.lstrip('/')}"
+                links.append(href)
+
+        return links
+    except Exception as e:
+        st.error(f"An error occurred while fetching links: {e}")
         return []
 
-    # Parse the HTML content
-    soup = BeautifulSoup(response.text, "html.parser")
+# Function to extract article content and date
+def extract_article(link):
+    try:
+        # Fetch the article page content
+        response = requests.get(link)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-    # Find all text-based elements and links
-    articles = []
-    for tag in soup.find_all(["p", "h1", "h2", "h3", "a"]):  # Search in common tags
-        text = tag.get_text(strip=True)  # Extract visible text
-        link = tag.get("href") if tag.name == "a" else None
+        # Extract the date of publication
+        date = soup.find('h5')  # Replace 'h5' with the actual tag for the date
+        article_date = date.get_text(strip=True) if date else "Date not found"
 
-        # Add the text and link to the articles list if relevant
-        if keyword in text:  # Check if the keyword appears in the text
-            articles.append({
-                "text": text,
-                "link": link if link else "No link available"
-            })
+        # Extract the article content (body)
+        content = soup.find('div', class_='article-body')  # Replace with actual class
+        if content:
+            article_text = "\n".join(p.get_text() for p in content.find_all('p'))
+        else:
+            paragraphs = soup.find_all('p')
+            article_text = "\n".join(p.get_text() for p in paragraphs if p.get_text())
 
-    return articles
+        return article_date, article_text if article_text else "No article content found."
+    except Exception as e:
+        return f"Error extracting article: {e}", ""
 
+# Function to translate text to Gujarati
+def translate_text(text, target_language="gu"):
+    try:
+        # Translate text to target language (Gujarati by default)
+        translated = GoogleTranslator(source='auto', target=target_language).translate(text)
+        return translated
+    except Exception as e:
+        st.error(f"Error translating article: {e}")
+        return text
 
-# Streamlit App
+# Main Streamlit app
 def main():
-    st.title("Gujarati Newspaper Article Scraper")
-    st.sidebar.header("Newspaper Selection")
+    st.set_page_config(page_title="Gujarati News Scraper", page_icon="📰")
+    st.title("Gujarati News Article Finder")
 
-    # Dropdown for selecting the newspaper
-    newspaper = st.sidebar.selectbox(
-        "Choose a Newspaper",
-        ["Sandesh", "Divya Bhaskar", "Gujarat Samachar"]
-    )
+    # Sidebar for newspaper selection
+    st.sidebar.header("Select a Newspaper")
+    newspaper_options = {
+        "Sandesh": "https://www.sandesh.com/",
+        "Divya Bhaskar": "https://www.divyabhaskar.com/",
+        "Gujarat Samachar": "https://www.gujaratsamachar.com/"
+    }
+    selected_newspaper = st.sidebar.selectbox("Choose a Newspaper", list(newspaper_options.keys()))
 
-    # Keyword input field
+    # Keyword input
     keyword = st.text_input("Enter a keyword (in any language):")
 
-    # Newspaper URLs (base links)
-    newspaper_urls = {
-        "Sandesh": "https://www.sandesh.com",
-        "Divya Bhaskar": "https://www.divyabhaskar.com",
-        "Gujarat Samachar": "https://www.gujaratsamachar.com"
-    }
+    if st.button("Search Articles"):
+        if keyword:
+            # Detect language and translate keyword if necessary
+            with st.spinner("Detecting keyword language..."):
+                detected_language = GoogleTranslator(source='auto', target='en').translate(keyword)
+                if detected_language == keyword:
+                    st.info(f"Detected keyword in English: '{keyword}'")
+                else:
+                    st.info(f"Detected keyword in Gujarati: '{keyword}'")
+                
+                translated_keyword = keyword
 
-    # Fetch and display results
-    if st.button("Search"):
-        if not keyword:
-            st.warning("Please enter a keyword.")
+            # Fetch articles from the selected newspaper
+            with st.spinner(f"Searching for articles in {selected_newspaper}..."):
+                base_url = newspaper_options[selected_newspaper]
+                links = fetch_article_links(base_url, translated_keyword)
+
+                if links:
+                    st.success(f"Found {len(links)} articles:")
+                    for i, link in enumerate(links, start=1):
+                        st.write(f"**Article {i}:** [Link]({link})")
+
+                        with st.spinner(f"Extracting content for Article {i}..."):
+                            article_date, article_content = extract_article(link)
+                            st.write(f"**Published on:** {article_date}")
+
+                            if article_content:
+                                st.write(f"**Original Content:**\n{article_content}")
+                                translated_content = translate_text(article_content)
+                                st.write(f"**Translated Content:**\n{translated_content}")
+                            else:
+                                st.warning("No content found for this article.")
+                        st.write("---")
+                else:
+                    st.warning(f"No articles found with the keyword '{translated_keyword}'.")
         else:
-            st.info(f"Searching articles from {newspaper} with keyword '{keyword}'...")
-            url = newspaper_urls[newspaper]
-            articles = scrape_general(url, keyword)
+            st.error("Please enter a keyword.")
 
-            if articles:
-                st.success(f"Found {len(articles)} articles!")
-                for idx, article in enumerate(articles, start=1):
-                    st.write(f"### Article {idx}")
-                    st.write(f"**Text**: {article['text']}")
-                    st.write(f"**Link**: [Visit Article]({article['link']})" if article['link'] != "No link available" else "**Link**: No link available")
-                    st.write("---")
-            else:
-                st.warning(f"No articles found for keyword '{keyword}' on {newspaper}.")
-
-# Run the app
 if __name__ == "__main__":
     main()
