@@ -74,8 +74,8 @@ def display_articles(links):
                 if content:
                     st.write(f"**Article Content (Original):**\n{content}")
                     # Translate content if needed
-                    #translated_content = translate_text(content)
-                    #st.write(f"**Article Content (Translated):**\n{translated_content}")
+                    translated_content = translate_text(content)
+                    st.write(f"**Article Content (Translated):**\n{translated_content}")
                 else:
                     st.warning(f"Article has no content.")
     else:
